@@ -1,0 +1,20 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+jira = "*"
+arrow = "*"
+
+[dev-packages]
+autoflake = "*"
+black = "==19.3b0"
+flake8 = "*"
+hypothesis = "*"
+isort = "*"
+mypy = "*"
+pytest = "*"
+
+[requires]
+python_version = "3.6"
