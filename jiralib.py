@@ -37,6 +37,7 @@ def sprints(issue):
 #
 jira_fields = {
     "assignee": True,
+    "component": "components",
     "created": True,
     "epic": "customfield_10006",
     "epic_name": "customfield_10003",
@@ -44,7 +45,7 @@ jira_fields = {
     "parent": True,
     "resolution": True,
     "resolved": "resolutiondate",
-    "sprints": "customfield_10008",
+    "sprint": "customfield_10008",
     "status": True,
     "summary": True,
     "updated": True,
@@ -55,6 +56,7 @@ jira_fields = {
 #
 extractors = {
     "assignee": lambda x: (x["fields"]["assignee"] or {"displayName": None})["displayName"],
+    "components": lambda x: [c["name"] for c in x["fields"]["components"]],
     "created": lambda x: timestamp(x["fields"]["created"]),
     "epic": lambda x: x["fields"].get("customfield_10006"),
     "epic_name": lambda x: x["fields"].get("customfield_10003"),
@@ -80,6 +82,7 @@ def issues(client, jql, fields=[]):
             maxResults=50,
             json_result=True,
             fields=translate_fields(fields),
+            expand="changelog",
         )
         batch = r["issues"]
         start = start + len(batch) if start < r["total"] else None
@@ -105,3 +108,28 @@ def extract(field, issue):
 def timestamp(s):
     "Convert a timestame string to ISO in UTC."
     return arrow.get(s).to("utc").isoformat() if s else None
+
+
+def changes(issue):
+    key = issue["key"]
+    yield {
+        "key": key,
+        "time": timestamp(issue["fields"]["created"]),
+        "field": "created",
+        "old": None,
+        "new": None,
+    }
+
+    for h in issue["changelog"]["histories"]:
+        time = timestamp(h.get("created"))
+        for item in h["items"]:
+            old_value = item["fromString"]
+            new_value = item["toString"]
+            if old_value != new_value:
+                yield {
+                    "key": key,
+                    "time": time,
+                    "field": item["field"],
+                    "old": old_value,
+                    "new": new_value,
+                }

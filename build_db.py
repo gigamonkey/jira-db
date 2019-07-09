@@ -6,7 +6,7 @@ import sys
 
 from jira import JIRA
 
-from jiralib import extract, issues, timestamp
+from jiralib import extract, issues, timestamp, changes
 
 base = ["key", "summary", "assignee", "status", "created", "updated", "resolved", "resolution"]
 
@@ -16,11 +16,13 @@ tables = {
     "epics": base + ["epic_name"],
     "subtasks": base + ["parent"],
     "task_sprints": ["key", "sprint"],
+    "components": ["key", "component"],
     "sprints": ["name", "state", "start", "end", "complete"],
+    "changelog": ["key", "time", "field", "old", "new"],
 }
 
 # fields we need to ask for from Jira (after being translated by jiralib).
-query_fields = {"issue_type", "sprints"}
+query_fields = {"issue_type"}
 for fields in tables.values():
     query_fields.update(fields)
 
@@ -35,15 +37,19 @@ def make_tables(conn, client, jql):
     insert_subtask = create_table(cursor, "subtasks")
     insert_task_sprint = create_table(cursor, "task_sprints")
     insert_sprint = create_table(cursor, "sprints")
+    insert_component = create_table(cursor, "components")
+    insert_change = create_table(cursor, "changelog")
+
 
     sprints_seen = set()
 
     for issue in issues(client, jql, fields=sorted(query_fields)):
+        key = extract("key", issue)
         issue_type = extract("issue_type", issue)
+
         if issue_type == "Task":
             insert_task(simple_record(issue, "tasks"))
 
-            key = extract("key", issue)
             for sprint in extract("sprints", issue):
                 insert_task_sprint([key, sprint["name"]])
 
@@ -56,6 +62,12 @@ def make_tables(conn, client, jql):
 
         elif issue_type == "Sub-task":
             insert_subtask(simple_record(issue, "subtasks"))
+
+        for component in extract("components", issue):
+            insert_component([key, component])
+
+        for change in changes(issue):
+            insert_change([change[k] for k in tables["changelog"]])
 
     conn.commit()
 
