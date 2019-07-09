@@ -19,6 +19,18 @@ sprint_re = compile(
 sprint_values_re = compile(r"(\w+)=(.*?)(?:,|$)")
 
 
+def sprints(issue):
+    "Extract the name of the sprints a Task has been added to."
+
+    def g():
+        for desc in issue.get("fields", {}).get("customfield_10008") or []:
+            m = sprint_re.match(desc)
+            if m:
+                yield dict(sprint_values_re.findall(m.group(1)))["name"]
+
+    return list(g())
+
+
 #
 # Map the field names we want to use to the actual terrible names Jira
 # uses. (True means the name is the same in Jira.)
@@ -34,6 +46,23 @@ jira_fields = {
     "status": True,
     "summary": True,
     "updated": True,
+}
+
+#
+# Functions to extract the field value from an issue.
+#
+extractors = {
+    "created": lambda x: timestamp(x["fields"]["created"]),
+    "epic": lambda x: x["fields"].get("customfield_10006"),
+    "epic_name": lambda x: x["fields"].get("customfield_10003"),
+    "key": lambda x: x["key"],
+    "parent": lambda x: x["fields"]["parent"]["key"],
+    "resolution": lambda x: (x["fields"].get("resolution") or {"name": None})["name"],
+    "resolved": lambda x: timestamp(x["fields"]["resolutiondate"]),
+    "sprints": sprints,
+    "status": lambda x: x["fields"]["status"]["name"],
+    "summary": lambda x: x["fields"]["summary"],
+    "updated": lambda x: timestamp(x["fields"]["updated"]),
 }
 
 
@@ -66,66 +95,9 @@ def translate_fields(fields):
 
 
 def extract(field, issue):
-    return globals()[field](issue)
-
-
-def key(issue):
-    return issue["key"]
-
-
-def issuetype(issue):
-    return issue["fields"]["issuetype"]["name"]
-
-
-def epic(issue):
-    "Extract the key of the Epic this task is in."
-    return issue["fields"].get("customfield_10006")
-
-
-def epic_name(issue):
-    return issue["fields"].get("customfield_10003")
-
-
-def parent(issue):
-    return issue["fields"]["parent"]["key"]
-
-
-def status(issue):
-    return issue["fields"]["status"]["name"]
-
-
-def summary(issue):
-    return issue["fields"]["summary"]
-
-
-def resolution(issue):
-    r = issue["fields"].get("resolution")
-    return r["name"] if r else None
-
-
-def created(issue):
-    return timestamp(issue["fields"]["created"])
-
-
-def updated(issue):
-    return timestamp(issue["fields"]["updated"])
-
-
-def resolved(issue):
-    x = issue["fields"]["resolutiondate"]
-    return timestamp(x) if x else None
+    return extractors[field](issue)
 
 
 def timestamp(s):
     "Convert a timestame string to ISO in UTC."
-    return arrow.get(s).to("utc").isoformat()
-
-
-def sprints(issue):
-    def g():
-        for desc in issue.get("fields", {}).get("customfield_10008") or []:
-            m = sprint_re.match(desc)
-            if m:
-                yield dict(sprint_values_re.findall(m.group(1)))
-
-    return [s["name"] for s in g()]
+    return arrow.get(s).to("utc").isoformat() if s else None
