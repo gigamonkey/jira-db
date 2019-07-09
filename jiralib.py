@@ -26,7 +26,7 @@ def sprints(issue):
         for desc in issue.get("fields", {}).get("customfield_10008") or []:
             m = sprint_re.match(desc)
             if m:
-                yield dict(sprint_values_re.findall(m.group(1)))["name"]
+                yield dict(sprint_values_re.findall(m.group(1)))
 
     return list(g())
 

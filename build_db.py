@@ -8,7 +8,7 @@ import traceback
 
 from jira import JIRA
 
-from jiralib import extract, issues
+from jiralib import extract, issues, timestamp
 
 tables = {
     "tasks": {
@@ -70,18 +70,19 @@ def make_table(conn, client, preamble, table, jql, fields):
     conn.commit()
 
 
-def make_sprints_table(conn, client, preamble):
+def make_task_sprints_table(conn, client, preamble):
 
     jql = f"{preamble} and type = Task"
-    fields = ["key", "sprints"]
+    table_fields = ["key", "sprint"]
+    query_fields = ["key", "sprints"]
 
-    cursor, insert = create_table(conn, "sprints", ["key", "sprint"])
+    cursor, insert = create_table(conn, "task_sprints", table_fields)
 
-    for issue in issues(client, jql, fields=fields):
+    for issue in issues(client, jql, fields=query_fields):
         try:
             key = extract("key", issue)
             for sprint in extract("sprints", issue):
-                cursor.execute(insert, [key, sprint])
+                cursor.execute(insert, [key, sprint["name"]])
         except Exception as e:
             print(e)
             print(traceback.format_exc())
@@ -89,6 +90,38 @@ def make_sprints_table(conn, client, preamble):
             exit()
 
     conn.commit()
+
+
+def make_sprints_table(conn, client, preamble):
+
+    jql = f"{preamble} and type = Task"
+    table_fields = ["name", "state", "start", "end", "complete"]
+    query_fields = ["sprints"]
+
+    seen = set()
+
+    cursor, insert = create_table(conn, "sprints", table_fields)
+    for issue in issues(client, jql, fields=query_fields):
+        for sprint in extract("sprints", issue):
+            if sprint["id"] not in seen:
+                seen.add(sprint["id"])
+                cursor.execute(
+                    insert,
+                    [
+                        sprint["name"],
+                        sprint["state"],
+                        timestamp(denull(sprint["startDate"])),
+                        timestamp(denull(sprint["endDate"])),
+                        timestamp(denull(sprint["completeDate"])),
+                    ],
+                )
+
+    conn.commit()
+
+
+def denull(s):
+    "The Jira Sprint.toString() method strikes again!"
+    return None if s == "<null>" else s
 
 
 def create_table(conn, table, fields):
@@ -109,9 +142,14 @@ if __name__ == "__main__":
 
     projects = sys.argv[1:]
     preamble = f"project in ({', '.join(projects)})"
+
     for name, spec in tables.items():
         print(f"Making table {name}")
         make_table(conn, client, preamble, name, spec["jql"], spec["fields"])
+
+    print(f"Making table task_sprints")
+    make_task_sprints_table(conn, client, preamble)
+
     print(f"Making table sprints")
     make_sprints_table(conn, client, preamble)
 
