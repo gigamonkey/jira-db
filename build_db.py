@@ -19,7 +19,7 @@ tables = {
     "sprints": ["name", "state", "start", "end", "complete"],
 }
 
-# fields we need to ask for from Jira (after being translated by jiralib.
+# fields we need to ask for from Jira (after being translated by jiralib).
 query_fields = {"issue_type", "sprints"}
 for fields in tables.values():
     query_fields.update(fields)
