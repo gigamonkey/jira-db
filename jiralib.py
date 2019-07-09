@@ -6,8 +6,8 @@ import arrow
 
 #
 # Because the Jira API is awesome, the values in the list of sprints a
-# Task has been part of (a.k.a. customfield_10008) are rendered, in
-# the middle of a JSON response as strings that appears to have been
+# Task has been part of (a.k.a. customfield_10008) are rendered--in
+# the middle of a JSON response--as strings that appears to have been
 # produced by calling toString() on some Java object. So we tear that
 # apart with some regexps to get at the actual values. So elegant!
 #
