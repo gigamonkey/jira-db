@@ -1,122 +1,91 @@
 #!/usr/bin/env python3
 
-import json
 import os
 import sqlite3
 import sys
-import traceback
 
 from jira import JIRA
 
 from jiralib import extract, issues, timestamp
 
+base = ["key", "summary", "status", "created", "updated", "resolved", "resolution"]
+
+
 tables = {
-    "tasks": {
-        "jql": "type = Task",
-        "fields": [
-            "key",
-            "summary",
-            "status",
-            "created",
-            "updated",
-            "resolved",
-            "resolution",
-            "epic",
-        ],
-    },
-    "epics": {
-        "jql": "type = Epic",
-        "fields": [
-            "key",
-            "epic_name",
-            "summary",
-            "status",
-            "created",
-            "updated",
-            "resolved",
-            "resolution",
-        ],
-    },
-    "subtasks": {
-        "jql": "type = Sub-task",
-        "fields": [
-            "key",
-            "summary",
-            "status",
-            "created",
-            "updated",
-            "resolved",
-            "resolution",
-            "parent",
-        ],
-    },
+    "tasks": base + ["epic"],
+    "epics": base + ["epic_name"],
+    "subtasks": base + ["parent"],
+    "task_sprints": ["key", "sprint"],
+    "sprints": ["name", "state", "start", "end", "complete"],
 }
 
-
-def make_table(conn, client, preamble, table, jql, fields):
-    "Make a table in our SQLite database from the given query."
-
-    cursor, insert = create_table(conn, table, fields)
-
-    for issue in issues(client, f"{preamble} and {jql}", fields=fields):
-        try:
-            cursor.execute(insert, [extract(field, issue) for field in fields])
-        except Exception as e:
-            print(e)
-            print(traceback.format_exc())
-            json.dump(issue, sys.stdout, indent=2)
-            exit()
-
-    conn.commit()
+# fields we need to ask for from Jira (after being translated by jiralib.
+query_fields = {"issue_type", "sprints"}
+for fields in tables.values():
+    query_fields.update(fields)
 
 
-def make_task_sprints_table(conn, client, preamble):
+def make_tables(conn, client, jql):
 
-    jql = f"{preamble} and type = Task"
-    table_fields = ["key", "sprint"]
-    query_fields = ["key", "sprints"]
+    cursor = conn.cursor()
 
-    cursor, insert = create_table(conn, "task_sprints", table_fields)
+    insert_task = create_table(cursor, "tasks")
+    insert_epic = create_table(cursor, "epics")
+    insert_subtask = create_table(cursor, "subtasks")
+    insert_task_sprint = create_table(cursor, "task_sprints")
+    insert_sprint = create_table(cursor, "sprints")
 
-    for issue in issues(client, jql, fields=query_fields):
-        try:
+    sprints_seen = set()
+
+    for issue in issues(client, jql, fields=sorted(query_fields)):
+        issue_type = extract("issue_type", issue)
+        if issue_type == "Task":
+            insert_task(simple_record(issue, "tasks"))
+
             key = extract("key", issue)
             for sprint in extract("sprints", issue):
-                cursor.execute(insert, [key, sprint["name"]])
-        except Exception as e:
-            print(e)
-            print(traceback.format_exc())
-            json.dump(issue, sys.stdout, indent=2)
-            exit()
+                insert_task_sprint([key, sprint["name"]])
+
+                if sprint["id"] not in sprints_seen:
+                    sprints_seen.add(sprint["id"])
+                    insert_sprint(sprint_record(sprint))
+
+        elif issue_type == "Epic":
+            insert_epic(simple_record(issue, "epics"))
+
+        elif issue_type == "Sub-task":
+            insert_subtask(simple_record(issue, "subtasks"))
 
     conn.commit()
 
 
-def make_sprints_table(conn, client, preamble):
+def create_table(cursor, table):
 
-    jql = f"{preamble} and type = Task"
-    table_fields = ["name", "state", "start", "end", "complete"]
-    query_fields = ["sprints"]
+    fields = tables[table]
+    jql = f"insert into {table} values ({', '.join(['?'] * len(fields))})"
 
-    seen = set()
+    cursor.execute(f"drop table if exists {table}")
+    cursor.execute(f"create table {table} ({', '.join(fields)})")
 
-    cursor, insert = create_table(conn, "sprints", table_fields)
-    for issue in issues(client, jql, fields=query_fields):
-        for sprint in extract("sprints", issue):
-            if sprint["id"] not in seen:
-                seen.add(sprint["id"])
-                cursor.execute(
-                    insert,
-                    [
-                        sprint["name"],
-                        sprint["state"],
-                        timestamp(denull(sprint["startDate"])),
-                        timestamp(denull(sprint["endDate"])),
-                        timestamp(denull(sprint["completeDate"])),
-                    ],
-                )
+    def insert(row):
+        assert len(row) == len(fields)
+        cursor.execute(jql, row)
 
-    conn.commit()
+    return insert
+
+
+def simple_record(issue, table):
+    return [extract(field, issue) for field in tables[table]]
+
+
+def sprint_record(sprint):
+    return [
+        sprint["name"],
+        sprint["state"],
+        timestamp(denull(sprint["startDate"])),
+        timestamp(denull(sprint["endDate"])),
+        timestamp(denull(sprint["completeDate"])),
+    ]
 
 
 def denull(s):
@@ -124,33 +93,15 @@ def denull(s):
     return None if s == "<null>" else s
 
 
-def create_table(conn, table, fields):
-    cursor = conn.cursor()
-    cursor.execute(f"drop table if exists {table}")
-    cursor.execute(f"create table {table} ({', '.join(fields)})")
-    return cursor, f"insert into {table} values ({', '.join(['?'] * len(fields))})"
-
-
 if __name__ == "__main__":
 
     url = os.environ["JIRA_URL"]
     account = os.environ["JIRA_ACCOUNT"]
     key = os.environ["JIRA_KEY"]
-    client = JIRA(url, basic_auth=(account, key))
 
+    client = JIRA(url, basic_auth=(account, key))
     conn = sqlite3.connect("jira.db")
 
-    projects = sys.argv[1:]
-    preamble = f"project in ({', '.join(projects)})"
-
-    for name, spec in tables.items():
-        print(f"Making table {name}")
-        make_table(conn, client, preamble, name, spec["jql"], spec["fields"])
-
-    print(f"Making table task_sprints")
-    make_task_sprints_table(conn, client, preamble)
-
-    print(f"Making table sprints")
-    make_sprints_table(conn, client, preamble)
+    make_tables(conn, client, f"project in ({', '.join(sys.argv[1:])})")
 
     conn.close()
