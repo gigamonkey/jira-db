@@ -8,7 +8,7 @@ from jira import JIRA
 
 from jiralib import extract, issues, timestamp
 
-base = ["key", "summary", "status", "created", "updated", "resolved", "resolution"]
+base = ["key", "summary", "assignee", "status", "created", "updated", "resolved", "resolution"]
 
 
 tables = {
@@ -26,6 +26,7 @@ for fields in tables.values():
 
 
 def make_tables(conn, client, jql):
+    "Do one big query for all issues and fill out a bunch of tables."
 
     cursor = conn.cursor()
 

@@ -36,6 +36,7 @@ def sprints(issue):
 # uses. (True means the name is the same in Jira.)
 #
 jira_fields = {
+    "assignee": True,
     "created": True,
     "epic": "customfield_10006",
     "epic_name": "customfield_10003",
@@ -53,6 +54,7 @@ jira_fields = {
 # Functions to extract the field value from an issue.
 #
 extractors = {
+    "assignee": lambda x: (x["fields"]["assignee"] or {"displayName": None})["displayName"],
     "created": lambda x: timestamp(x["fields"]["created"]),
     "epic": lambda x: x["fields"].get("customfield_10006"),
     "epic_name": lambda x: x["fields"].get("customfield_10003"),
