@@ -55,7 +55,9 @@ jira_fields = {
 # Functions to extract the field value from an issue.
 #
 extractors = {
-    "assignee": lambda x: (x["fields"]["assignee"] or {"displayName": None})["displayName"],
+    "assignee": lambda x: (x["fields"]["assignee"] or {"displayName": None})[
+        "displayName"
+    ],
     "components": lambda x: [c["name"] for c in x["fields"]["components"]],
     "created": lambda x: timestamp(x["fields"]["created"]),
     "epic": lambda x: x["fields"].get("customfield_10006"),

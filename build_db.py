@@ -6,9 +6,18 @@ import sys
 
 from jira import JIRA
 
-from jiralib import extract, issues, timestamp, changes
+from jiralib import changes, extract, issues, timestamp
 
-base = ["key", "summary", "assignee", "status", "created", "updated", "resolved", "resolution"]
+base = [
+    "key",
+    "summary",
+    "assignee",
+    "status",
+    "created",
+    "updated",
+    "resolved",
+    "resolution",
+]
 
 
 tables = {
@@ -39,7 +48,6 @@ def make_tables(conn, client, jql):
     insert_sprint = create_table(cursor, "sprints")
     insert_component = create_table(cursor, "components")
     insert_change = create_table(cursor, "changelog")
-
 
     sprints_seen = set()
 
