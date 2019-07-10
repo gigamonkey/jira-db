@@ -17,6 +17,7 @@ base = [
     "updated",
     "resolved",
     "resolution",
+    "due_date",
 ]
 
 
