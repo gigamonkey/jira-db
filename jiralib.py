@@ -66,7 +66,7 @@ sprint_values_re = compile(r"(\w+)=(.*?)(?:,|$)")
 
 
 def parse_sprint(s):
-    m = parse_sprint.sprint_re.match(s)
+    m = sprint_re.match(s)
     return dict(sprint_values_re.findall(m.group(1))) if m else None
 
 
