@@ -162,7 +162,7 @@ def find_highwater(conn):
         time = epoch
 
     # FIXME: Should really fetch the default timezone from the server.
-    return arrow.get(time).to('US/Eastern').format("YYYY-MM-DD HH:mm")
+    return arrow.get(time).to("US/Eastern").format("YYYY-MM-DD HH:mm")
 
 
 if __name__ == "__main__":
