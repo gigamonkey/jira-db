@@ -21,15 +21,17 @@ base = [
     "resolved",
     "resolution",
     "due_date",
+    "rank",
 ]
 
 
 tables = {
-    "tasks": base + ["epic"],
-    "epics": base + ["epic_name"],
+    "tasks": base + ["epic", "size"],
+    "epics": base + ["name"],
     "subtasks": base + ["parent"],
     "task_sprints": ["key", "sprint"],
     "components": ["key", "component"],
+    "labels": ["key", "label"],
     "sprints": ["name", "state", "start", "end", "complete"],
     "changelog": ["key", "time", "field", "old", "new"],
     "highwater": ["time"],
@@ -41,6 +43,7 @@ table_keys = {
     "subtasks": {"key"},
     "task_sprints": set(),
     "components": set(),
+    "labels": set(),
     "sprints": {"name"},
     "changelog": set(),
     "highwater": set(),
@@ -64,6 +67,7 @@ def make_tables(conn, client, jql):
     insert_task_sprint = create_table(cursor, "task_sprints")
     insert_sprint = create_table(cursor, "sprints")
     insert_component = create_table(cursor, "components")
+    insert_label = create_table(cursor, "labels")
     insert_change = create_table(cursor, "changelog")
     insert_highwater = create_table(cursor, "highwater")
 
@@ -97,6 +101,10 @@ def make_tables(conn, client, jql):
         cursor.execute("delete from components where key = ?", [key])
         for component in extract("components", issue):
             insert_component([key, component])
+
+        cursor.execute("delete from labels where key = ?", [key])
+        for label in extract("labels", issue):
+            insert_label([key, label])
 
         cursor.execute("delete from changelog where key = ?", [key])
         for change in changes(issue):

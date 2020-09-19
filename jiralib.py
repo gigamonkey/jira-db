@@ -15,11 +15,14 @@ jira_fields = {
     "created": True,
     "due_date": "duedate",
     "epic": "customfield_10006",
-    "epic_name": "customfield_10003",
     "issue_type": "issuetype",
+    "label": "labels",
+    "name": "customfield_10003",
     "parent": True,
+    "rank": "customfield_10009",
     "resolution": True,
     "resolved": "resolutiondate",
+    "size": "labels",
     "sprint": "customfield_10008",
     "status": True,
     "summary": True,
@@ -74,18 +77,26 @@ def extract_sprints(value):
     return [s for s in (parse_sprint(s) for s in value) if s] if value else []
 
 
+def extract_size(labels):
+    sizes = set(labels) & {"Small", "Medium", "Large"}
+    return list(sizes)[0] if len(sizes) > 0 else None
+
+
 extractors = {
     "assignee": field("assignee", "displayName"),
     "components": field("components", fn=lambda cs: [c["name"] for c in cs]),
     "created": field("created", fn=timestamp),
     "due_date": field("duedate", fn=timestamp),
     "epic": field("customfield_10006"),
-    "epic_name": field("customfield_10003"),
     "issue_type": field("issuetype", "name"),
     "key": lambda x: x["key"],
+    "labels": field("labels"),
+    "name": field("customfield_10003"),
     "parent": field("parent", "key"),
+    "rank": field("customfield_10009"),
     "resolution": field("resolution", "name"),
     "resolved": field("resolutiondate", fn=timestamp),
+    "size": field("labels", fn=extract_size),
     "sprints": field("customfield_10008", fn=extract_sprints),
     "status": field("status", "name"),
     "summary": field("summary"),
