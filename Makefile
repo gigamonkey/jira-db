@@ -3,6 +3,9 @@ all: fmt
 db:
 	./build_db.py TECH
 
+check:
+	./qc.sh
+
 lint:
 	flake8
 	isort --recursive . --check-only
