@@ -1,6 +1,5 @@
 "Miscelaneous functions for pulling stats from Jira."
 
-from re import compile
 
 import arrow
 
@@ -53,30 +52,6 @@ def timestamp(s):
     return arrow.get(s).to("utc").isoformat() if s else None
 
 
-#
-# Because the Jira API is awesome, the values in the list of sprints a
-# Task has been part of (a.k.a. customfield_10008) are rendered--in
-# the middle of a JSON response--as strings that appears to have been
-# produced by calling toString() on some Java object. So we tear that
-# apart with some regexps to get at the actual values. So elegant!
-#
-
-sprint_re = compile(
-    r"^com\.atlassian\.greenhopper\.service\.sprint\.Sprint@.*?\[(.*?)\]"
-)
-
-sprint_values_re = compile(r"(\w+)=(.*?)(?:,|$)")
-
-
-def parse_sprint(s):
-    m = sprint_re.match(s)
-    return dict(sprint_values_re.findall(m.group(1))) if m else None
-
-
-def extract_sprints(value):
-    return [s for s in (parse_sprint(s) for s in value) if s] if value else []
-
-
 def extract_size(labels):
     sizes = set(labels) & {"Small", "Medium", "Large"}
     return list(sizes)[0] if len(sizes) > 0 else None
@@ -97,7 +72,7 @@ extractors = {
     "resolution": field("resolution", "name"),
     "resolved": field("resolutiondate", fn=timestamp),
     "size": field("labels", fn=extract_size),
-    "sprints": field("customfield_10008", fn=extract_sprints),
+    "sprints": field("customfield_10008", fn=lambda x: x or []),
     "status": field("status", "name"),
     "summary": field("summary"),
     "updated": field("updated", fn=timestamp),
