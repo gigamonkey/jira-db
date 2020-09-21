@@ -149,7 +149,7 @@ def sprint_record(sprint):
         sprint["state"],
         timestamp(denull(sprint["startDate"])),
         timestamp(denull(sprint["endDate"])),
-        timestamp(denull(sprint["completeDate"])),
+        timestamp(denull(sprint.get("completeDate"))),
     ]
 
 
